@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>加密貨幣資產圓餅圖產生器</title>
+<style>
+:root{
+  --bg:#ffffff; --surface:#f7f7f5; --card:#ffffff; --border:#e3e2dc;
+  --text:#0b0b0b; --text2:#5f5e5a; --accent:#2a78d6; --accent-text:#0c447c;
+  --danger:#c0392b;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151513; --surface:#1e1e1c; --card:#1e1e1c; --border:#33322e;
+    --text:#f0efec; --text2:#a9a89f; --accent:#5ea0ec; --accent-text:#bcdcfb;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151513; --surface:#1e1e1c; --card:#1e1e1c; --border:#33322e;
+  --text:#f0efec; --text2:#a9a89f; --accent:#5ea0ec; --accent-text:#bcdcfb;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:1.25rem 1rem 2rem;
+}
+h1{font-size:19px; font-weight:500; margin:0 0 4px;}
+p.sub{color:var(--text2); font-size:13px; margin:0 0 1.25rem; line-height:1.5;}
+.card{background:var(--card); border:0.5px solid var(--border); border-radius:12px; padding:1rem; margin-bottom:1rem;}
+#dropzone{
+  border:1.5px dashed var(--border); border-radius:12px; padding:1.5rem 1rem;
+  text-align:center; color:var(--text2); font-size:14px; cursor:pointer;
+}
+#dropzone.drag{border-color:var(--accent); color:var(--accent-text);}
+#fileInput{display:none;}
+#thumbs{display:flex; flex-wrap:wrap; gap:8px; margin-top:0.75rem;}
+.thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:0.5px solid var(--border);}
+.thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.thumb button{
+  position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%;
+  background:rgba(0,0,0,0.6); color:#fff; border:none; font-size:11px; line-height:18px; padding:0; cursor:pointer;
+}
+button.primary{
+  width:100%; padding:0.75rem; border-radius:8px; border:none; background:var(--accent);
+  color:#fff; font-size:15px; font-weight:500; cursor:pointer; margin-top:0.75rem;
+}
+button.primary:disabled{opacity:0.45; cursor:default;}
+button.secondary{
+  padding:0.5rem 0.9rem; border-radius:8px; border:0.5px solid var(--border); background:transparent;
+  color:var(--text); font-size:13px; cursor:pointer;
+}
+#status{font-size:13px; color:var(--text2); margin-top:0.6rem; min-height:18px;}
+#error{font-size:13px; color:var(--danger); margin-top:0.6rem; display:none;}
+#resultWrap{display:none;}
+canvas{max-width:100%;}
+table{width:100%; border-collapse:collapse; font-size:13px; margin-top:0.5rem;}
+th,td{text-align:left; padding:6px 4px; border-bottom:0.5px solid var(--border);}
+th{color:var(--text2); font-weight:500; font-size:12px;}
+td.num, th.num{text-align:right;}
+.legend{display:flex; flex-wrap:wrap; gap:8px 14px; font-size:12px; color:var(--text2); margin-bottom:10px;}
+.legend span{display:flex; align-items:center; gap:5px;}
+.dot{width:9px; height:9px; border-radius:2px; display:inline-block; flex:none;}
+#totalRow{font-size:13px; color:var(--text2); margin-top:0.75rem; display:flex; justify-content:space-between;}
+#totalRow b{color:var(--text); font-weight:500;}
+.footer-actions{display:flex; gap:8px; margin-top:1rem;}
+</style>
+</head>
+<body>
+
+<h1>加密貨幣資產圓餅圖產生器</h1>
+<p class="sub">上傳一張或多張錢包資產截圖，AI 會自動讀出每個代幣的名稱與美元價值，並畫出圓餅圖與佔比。截圖只會傳送給你自己的 Claude 帳號讀取，不會被儲存。</p>
+
+<div class="card">
+  <div id="dropzone">點一下或拖曳圖片到這裡上傳截圖<br><span style="font-size:12px;">可一次選多張，若清單很長可分段截圖</span></div>
+  <input type="file" id="fileInput" accept="image/*" multiple>
+  <div id="thumbs"></div>
+  <button class="primary" id="genBtn" disabled>產生圓餅圖</button>
+  <div id="status"></div>
+  <div id="error"></div>
+</div>
+
+<div class="card" id="resultWrap">
+  <div class="legend" id="legend"></div>
+  <div style="position:relative; width:100%; height:300px;">
+    <canvas id="pieChart" role="img" aria-label="代幣資產佔比圓餅圖"></canvas>
+  </div>
+  <div id="totalRow"></div>
+  <table id="dataTable">
+    <thead><tr><th>代幣</th><th class="num">價值 (US$)</th><th class="num">佔比</th></tr></thead>
+    <tbody id="dataBody"></tbody>
+  </table>
+  <div class="footer-actions">
+    <button class="secondary" id="csvBtn">下載 CSV</button>
+    <button class="secondary" id="resetBtn">重新開始</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const COVE = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#6250d6','#e34948'];
+const OTHER_COLOR = '#898781';
+
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const thumbs = document.getElementById('thumbs');
+const genBtn = document.getElementById('genBtn');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const resultWrap = document.getElementById('resultWrap');
+
+let files = [];
+let chartInstance = null;
+let lastRows = [];
+
+dropzone.addEventListener('click', () => fileInput.click());
+['dragover','dragenter'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => {
+  const dropped = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
+  addFiles(dropped);
+});
+fileInput.addEventListener('change', () => { addFiles(Array.from(fileInput.files || [])); fileInput.value = ''; });
+
+function addFiles(list) {
+  for (const f of list) files.push(f);
+  renderThumbs();
+}
+
+function renderThumbs() {
+  thumbs.innerHTML = '';
+  files.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    div.innerHTML = '<img src="' + url + '"><button aria-label="移除">×</button>';
+    div.querySelector('button').onclick = () => { files.splice(i, 1); renderThumbs(); };
+    thumbs.appendChild(div);
+  });
+  genBtn.disabled = files.length === 0;
+}
+
+const resetBtn = document.getElementById('resetBtn');
+resetBtn.onclick = () => {
+  files = [];
+  renderThumbs();
+  resultWrap.style.display = 'none';
+  statusEl.textContent = '';
+  errorEl.style.display = 'none';
+};
+
+const csvBtn = document.getElementById('csvBtn');
+csvBtn.onclick = async () => {
+  const downloads = await claude.use('downloads').catch(() => null);
+  const lines = ['代幣,價值(USD),佔比(%)'];
+  for (const r of lastRows) lines.push([r.name, r.usd.toFixed(2), r.pct.toFixed(2)].join(','));
+  const csv = lines.join('\n');
+  if (downloads) {
+    try {
+      await downloads.save({ filename: 'crypto-holdings.csv', data: new Blob([csv], { type: 'text/csv' }) });
+      return;
+    } catch (e) { /* fall through to manual download */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'crypto-holdings.csv';
+  a.click();
+};
+
+genBtn.onclick = async () => {
+  errorEl.style.display = 'none';
+  genBtn.disabled = true;
+  statusEl.textContent = '正在讀取截圖…（可能需要 10-60 秒）';
+
+  const sample = await claude.use('sample').catch(() => null);
+  if (!sample) {
+    showError('目前無法使用 AI 讀圖功能，請確認已允許此頁面使用 Claude。');
+    genBtn.disabled = false;
+    return;
+  }
+  const limits = await sample.limits().catch(() => null);
+  if (!limits || !limits.images) {
+    showError('此檢視環境不支援上傳圖片給 AI 讀取。');
+    genBtn.disabled = false;
+    return;
+  }
+  const maxCount = limits.images.maxCount || 1;
+  const chunks = [];
+  for (let i = 0; i < files.length; i += maxCount) chunks.push(files.slice(i, i + maxCount));
+
+  const prompt = '這是加密貨幣/投資錢包App的資產列表截圖。請找出畫面中每一列個別持倉(代幣/股票代幣)的「名稱」與「美元價值」(通常標示為 US$ 開頭的數字，不是持有數量、不是百分比漲跌)。忽略畫面最上方的「總資產」加總數字，只列出個別項目。只回傳 JSON 陣列，每個物件格式為 {"name": string, "usd": number}，不要有其他文字。';
+
+  const merged = {};
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      statusEl.textContent = '正在讀取第 ' + (i + 1) + ' / ' + chunks.length + ' 批截圖…';
+      const items = await sample.json(prompt, { images: chunks[i], modelTier: 'default' });
+      if (!Array.isArray(items)) continue;
+      for (const it of items) {
+        const name = String(it && it.name || '').trim();
+        const usd = Number(it && it.usd);
+        if (!name || !isFinite(usd) || usd <= 0) continue;
+        merged[name] = (merged[name] || 0) + usd;
+      }
+    }
+  } catch (e) {
+    showError(copyForError(e));
+    genBtn.disabled = false;
+    statusEl.textContent = '';
+    return;
+  }
+
+  const rows = Object.entries(merged).map(([name, usd]) => ({ name, usd }));
+  if (rows.length === 0) {
+    showError('無法從截圖中辨識出代幣資料，請確認截圖清楚顯示每個代幣名稱與 US$ 金額。');
+    genBtn.disabled = false;
+    statusEl.textContent = '';
+    return;
+  }
+  rows.sort((a, b) => b.usd - a.usd);
+  const total = rows.reduce((s, r) => s + r.usd, 0);
+  rows.forEach(r => { r.pct = total > 0 ? (r.usd / total) * 100 : 0; });
+
+  renderResult(rows, total);
+  statusEl.textContent = '完成，共辨識出 ' + rows.length + ' 個代幣。';
+  genBtn.disabled = false;
+};
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = 'block';
+}
+
+function copyForError(e) {
+  const map = {
+    not_granted: '你尚未允許此頁面使用 Claude，請重新整理後同意授權。',
+    images_unavailable: '此檢視環境不支援上傳圖片。',
+    rate_limited: '目前請求過多，請稍後再試一次。',
+    refused: 'AI 無法處理這張截圖的內容，請換一張試試。',
+    invalid_json: 'AI 回傳的格式無法解析，請再試一次。',
+    prompt_too_large: '截圖數量太多，請減少後再試。'
+  };
+  return (e && map[e.code]) || '讀取截圖時發生錯誤，請再試一次。';
+}
+
+function renderResult(rows, total) {
+  lastRows = rows;
+  const TOP_N = 8;
+  let chartRows = rows.slice(0, TOP_N);
+  const rest = rows.slice(TOP_N);
+  if (rest.length > 0) {
+    const restSum = rest.reduce((s, r) => s + r.usd, 0);
+    chartRows = chartRows.concat([{ name: '其他 ' + rest.length + ' 項', usd: restSum, pct: (restSum / total) * 100 }]);
+  }
+  const colors = chartRows.map((_, i) => i < COVE.length ? COVE[i] : OTHER_COLOR);
+
+  const legend = document.getElementById('legend');
+  legend.innerHTML = chartRows.map((r, i) =>
+    '<span><span class="dot" style="background:' + colors[i] + '"></span>' + escapeHtml(r.name) + ' ' + r.pct.toFixed(2) + '%</span>'
+  ).join('');
+
+  const ctx = document.getElementById('pieChart');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: chartRows.map(r => r.name),
+      datasets: [{ data: chartRows.map(r => r.usd), backgroundColor: colors, borderColor: '#fcfcfb', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  document.getElementById('totalRow').innerHTML = '<span>總計 ' + rows.length + ' 個代幣</span><b>US$ ' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</b>';
+
+  const body = document.getElementById('dataBody');
+  body.innerHTML = rows.map(r =>
+    '<tr><td>' + escapeHtml(r.name) + '</td><td class="num">' + r.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td><td class="num">' + r.pct.toFixed(2) + '%</td></tr>'
+  ).join('');
+
+  resultWrap.style.display = 'block';
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+</script>
+</body>
+</html>
