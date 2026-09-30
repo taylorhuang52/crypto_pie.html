@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密貨幣資產分佈圓餅圖</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  @import url('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@5.0.0/index.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    color: #f0b90b;
+    margin-bottom: 8px;
+  }
+
+  .header .total {
+    font-size: 36px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .header .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-top: 4px;
+  }
+
+  .chart-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin: 30px 0;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .chart-section {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #2a2a3e;
+  }
+
+  .chart-card h2 {
+    font-size: 18px;
+    color: #f0b90b;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .legend-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 10px;
+  }
+
+  .legend-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .legend-container::-webkit-scrollbar-track {
+    background: #1a1a2e;
+    border-radius: 3px;
+  }
+
+  .legend-container::-webkit-scrollbar-thumb {
+    background: #f0b90b;
+    border-radius: 3px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #12121f;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .legend-item:hover {
+    background: #252540;
+    transform: translateX(4px);
+  }
+
+  .legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .legend-name {
+    flex: 1;
+    font-size: 13px;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .legend-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: 10px;
+    white-space: nowrap;
+  }
+
+  .legend-pct {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f0b90b;
+    min-width: 55px;
+    text-align: right;
+  }
+
+  .table-section {
+    margin-top: 30px;
+  }
+
+  .table-card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #2a2a3e;
+    overflow-x: auto;
+  }
+
+  .table-card h2 {
+    font-size: 18px;
+    color: #f0b90b;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    background: #252540;
+    color: #f0b90b;
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+
+  td {
+    padding: 10px;
+    border-bottom: 1px solid #2a2a3e;
+    color: #ccc;
+  }
+
+  tr:hover td {
+    background: #252540;
+  }
+
+  .asset-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .asset-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .pct-bar {
+    width: 100%;
+    height: 6px;
+    background: #2a2a3e;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .pct-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s;
+  }
+
+  .filter-btns {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 8px 20px;
+    border: 1px solid #2a2a3e;
+    background: #1a1a2e;
+    color: #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Noto Sans TC', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    background: #f0b90b;
+    color: #000;
+    border-color: #f0b90b;
+  }
+
+  .tooltip-custom {
+    background: #1a1a2e !important;
+    border: 1px solid #f0b90b !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    font-family: 'Noto Sans TC', sans-serif !important;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📊 加密貨幣資產分佈</h1>
+    <div class="total">US$ 37,598.91</div>
+    <div class="subtitle">共 45 項資產 · 資料來源：冷錢包</div>
+  </div>
+
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="filterChart('all')">全部資產</button>
+    <button class="filter-btn" onclick="filterChart('top10')">前10大</button>
+    <button class="filter-btn" onclick="filterChart('crypto')">加密貨幣</button>
+    <button class="filter-btn" onclick="filterChart('stock')">股票代幣</button>
+    <button class="filter-btn" onclick="filterChart('xstock')">xStock</button>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-card">
+      <h2> 資產佔比圓餅圖</h2>
+      <div class="chart-container">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2> 資產明細</h2>
+      <div class="legend-container" id="legendContainer"></div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="table-card">
+      <h2>📑 完整資產列表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>資產名稱</th>
+            <th>代幣符號</th>
+            <th>數量</th>
+            <th>價值 (US$)</th>
+            <th>佔比</th>
+            <th>分佈</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const assets = [
+  { name: "BTC Taproot", symbol: "BTC", qty: 0.1341838, value: 11211.52, category: "crypto" },
+  { name: "Wrapped Beacon ETH", symbol: "WBETH", qty: 0.9138577, value: 2702.99, category: "crypto" },
+  { name: "Lombard Staked BTC", symbol: "LBTC", qty: 0.0299167, value: 2509.05, category: "crypto" },
+  { name: "Advanced Micro Devices", symbol: "AMDB", qty: 2.0685169, value: 1258.26, category: "stock" },
+  { name: "TSMC", symbol: "TSMB", qty: 2.3513488, value: 1069.80, category: "stock" },
+  { name: "Broadcom", symbol: "AVGOB", qty: 2.9596197, value: 1054.35, category: "stock" },
+  { name: "Intel Corporation", symbol: "INTCB", qty: 8.6312745, value: 1004.44, category: "stock" },
+  { name: "Tesla, Inc.", symbol: "TSLAB", qty: 2.785, value: 986.31, category: "stock" },
+  { name: "Alphabet xStock", symbol: "GOOGLx", qty: 2.3359846, value: 798.17, category: "xstock" },
+  { name: "NVIDIA xStock", symbol: "NVDAx", qty: 3.4464689, value: 787.77, category: "xstock" },
+  { name: "Marvell Technology", symbol: "MRVLB", qty: 2.765, value: 728.62, category: "stock" },
+  { name: "Invesco QQQ", symbol: "QQQB", qty: 0.924837, value: 683.46, category: "stock" },
+  { name: "Micron Technology", symbol: "MUB", qty: 0.6379313, value: 683.44, category: "stock" },
+  { name: "NVIDIA Corp", symbol: "NVDAB", qty: 2.7299377, value: 622.79, category: "stock" },
+  { name: "Amazon", symbol: "AMZNB", qty: 2.495, value: 615.95, category: "stock" },
+  { name: "Dell", symbol: "DELLB", qty: 1.11, value: 600.01, category: "stock" },
+  { name: "SpaceX", symbol: "SPCXB", qty: 3.935, value: 587.77, category: "stock" },
+  { name: "TSMon", symbol: "TSMon", qty: 1.1574312, value: 531.86, category: "stock" },
+  { name: "Apple", symbol: "AAPLB", qty: 1.5493119, value: 511.12, category: "stock" },
+  { name: "SP500 xStock", symbol: "SPYx", qty: 0.5956779, value: 458.69, category: "xstock" },
+  { name: "Tesla xStock", symbol: "TSLAx", qty: 1.2417665, value: 439.85, category: "xstock" },
+  { name: "Binance Staked SOL", symbol: "BNSOL", qty: 3.4426605, value: 468.17, category: "crypto" },
+  { name: "Palantir Technologies", symbol: "PLTRB", qty: 1.79, value: 334.84, category: "stock" },
+  { name: "Meta Platforms", symbol: "METAB", qty: 0.3601103, value: 266.91, category: "stock" },
+  { name: "Nasdaq xStock", symbol: "QQQx", qty: 0.5592144, value: 266.16, category: "xstock" },
+  { name: "AMDon", symbol: "AMDon", qty: 0.414775, value: 251.52, category: "stock" },
+  { name: "Alphabet", symbol: "GOOGLB", qty: 0.5999044, value: 204.65, category: "stock" },
+  { name: "COSTon", symbol: "COSTon", qty: 0.1886819, value: 175.24, category: "stock" },
+  { name: "Microsoft", symbol: "MSFTB", qty: 0.3197178, value: 163.02, category: "stock" },
+  { name: "AVGOon", symbol: "AVGOon", qty: 0.4243949, value: 151.96, category: "stock" },
+  { name: "Qualcomm", symbol: "QCOMB", qty: 0.677726, value: 125.26, category: "stock" },
+  { name: "GOOGLon", symbol: "GOOGLon", qty: 0.3762788, value: 128.63, category: "stock" },
+  { name: "INTCon", symbol: "INTCon", qty: 0.9183304, value: 106.83, category: "stock" },
+  { name: "Microsoft xStock", symbol: "MSFTx", qty: 0.16243, value: 83.14, category: "xstock" },
+  { name: "PLTRon", symbol: "PLTRon", qty: 0.3947824, value: 73.87, category: "stock" },
+  { name: "IONQon", symbol: "IONQon", qty: 1.5330834, value: 67.60, category: "stock" },
+  { name: "VTlon", symbol: "VTlon", qty: 0.1705711, value: 64.65, category: "stock" },
+  { name: "Apple xStock", symbol: "AAPLx", qty: 0.1545354, value: 51.09, category: "xstock" },
+  { name: "Binance Smart Chain", symbol: "BNB", qty: 0.0499824, value: 38.03, category: "crypto" },
+  { name: "Amazon.com xStock", symbol: "AMZNx", qty: 0.1217529, value: 30.07, category: "xstock" },
+  { name: "Meta xStock", symbol: "METAx", qty: 0.0220797, value: 16.39, category: "xstock" },
+  { name: "Solana", symbol: "SOL", qty: 0.0269391, value: 3.22, category: "crypto" },
+  { name: "Ethereum", symbol: "ETH", qty: 0.0000946, value: 0.25, category: "crypto" },
+  { name: "NVDaon", symbol: "NVDaon", qty: 0, value: 0.00, category: "stock" },
+  { name: "SPY", symbol: "SPYB", qty: 0.8246114, value: 632.25, category: "stock" }
+];
+
+const totalValue = assets.reduce((s, a) => s + a.value, 0);
+
+const colors = [
+  '#f7931a','#627eea','#f0b90b','#ed1c24','#00d4aa',
+  '#26a17b','#e84142','#0052ff','#ff6600','#7b2cbf',
+  '#00a3e0','#c70039','#ff6348','#2ed573','#1e90ff',
+  '#ff4757','#ffa502','#2f3542','#5352ed','#ff6b81',
+  '#7bed9f','#70a1ff','#eccc68','#a4b0be','#574b90',
+  '#30336b','#b33939','#218c74','#84817a','#cd6133',
+  '#1b1464','#0652dd','#9980fa','#c56cf0','#ffbe76',
+  '#f0932b','#eb4d4b','#6ab04c','#badc58','#7ed6df',
+  '#22a6b3','#be2edd','#4834d4','#130f40','#6c5ce7',
+  '#fd79a8','#00cec9','#fdcb6e','#e17055','#d63031'
+];
+
+let currentFilter = 'all';
+let pieChart;
+
+function getFilteredAssets(filter) {
+  if (filter === 'all') return [...assets].sort((a, b) => b.value - a.value);
+  if (filter === 'top10') return [...assets].sort((a, b) => b.value - a.value).slice(0, 10);
+  return assets.filter(a => a.category === filter).sort((a, b) => b.value - a.value);
+}
+
+function createChart(filter) {
+  const filtered = getFilteredAssets(filter);
+  const ctx = document.getElementById('pieChart').getContext('2d');
+
+  if (pieChart) pieChart.destroy();
+
+  const showLabels = filtered.length <= 15;
+
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: filtered.map(a => a.name),
+      datasets: [{
+        data: filtered.map(a => a.value),
+        backgroundColor: colors.slice(0, filtered.length),
+        borderColor: '#0d0d0d',
+        borderWidth: 2,
+        hoverOffset: 12
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '40%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          titleColor: '#f0b90b',
+          bodyColor: '#fff',
+          borderColor: '#f0b90b',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed;
+              const pct = ((val / totalValue) * 100).toFixed(2);
+              return ` ${context.label}: US$ ${val.toLocaleString('en-US', {minimumFractionDigits: 2})} (${pct}%)`;
+            }
+          }
+        },
+        datalabels: {
+          display: showLabels,
+          color: '#fff',
+          font: { size: 10, weight: 'bold' },
+          formatter: function(value, context) {
+            const pct = ((value / totalValue) * 100);
+            return pct > 2 ? pct.toFixed(1) + '%' : '';
+          }
+        }
+      },
+      animation: {
+        animateRotate: true,
+        duration: 1200,
+        easing: 'easeOutQuart'
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+function renderLegend(filter) {
+  const filtered = getFilteredAssets(filter);
+  const container = document.getElementById('legendContainer');
+  container.innerHTML = '';
+
+  filtered.forEach((asset, i) => {
+    const pct = ((asset.value / totalValue) * 100).toFixed(2);
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-color" style="background:${colors[i % colors.length]}"></div>
+      <div class="legend-name">${asset.name}</div>
+      <div class="legend-value">$${asset.value.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+      <div class="legend-pct">${pct}%</div>
+    `;
+    item.addEventListener('mouseenter', () => {
+      if (pieChart) {
+        pieChart.setActiveElements([{ datasetIndex: 0, index: i }]);
+        pieChart.update();
+      }
+    });
+    item.addEventListener('mouseleave', () => {
+      if (pieChart) {
+        pieChart.setActiveElements([]);
+        pieChart.update();
+      }
+    });
+    container.appendChild(item);
+  });
+}
+
+function renderTable(filter) {
+  const filtered = getFilteredAssets(filter);
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  filtered.forEach((asset, i) => {
+    const pct = ((asset.value / totalValue) * 100).toFixed(2);
+    const color = colors[i % colors.length];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td><div class="asset-name-cell"><div class="asset-dot" style="background:${color}"></div>${asset.name}</div></td>
+      <td style="color:#f0b90b;font-weight:600">${asset.symbol}</td>
+      <td>${asset.qty.toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 7})}</td>
+      <td style="font-weight:600;color:#fff">$${asset.value.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+      <td style="color:#f0b90b;font-weight:700">${pct}%</td>
+      <td style="min-width:100px"><div class="pct-bar"><div class="pct-bar-fill" style="width:${Math.min(pct * 3, 100)}%;background:${color}"></div></div></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterChart(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  createChart(filter);
+  renderLegend(filter);
+  renderTable(filter);
+}
+
+// Init
+createChart('all');
+renderLegend('all');
+renderTable('all');
+</script>
+
+</body>
+</html>
