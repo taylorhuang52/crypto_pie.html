@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加密貨幣資產分佈圓餅圖</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  @import url('https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-tc@5.0.0/index.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    color: #f0b90b;
+    margin-bottom: 8px;
+  }
+
+  .header .total {
+    font-size: 36px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .header .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-top: 4px;
+  }
+
+  .chart-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin: 30px 0;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .chart-section {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #2a2a3e;
+  }
+
+  .chart-card h2 {
+    font-size: 18px;
+    color: #f0b90b;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .legend-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 10px;
+  }
+
+  .legend-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .legend-container::-webkit-scrollbar-track {
+    background: #1a1a2e;
+    border-radius: 3px;
+  }
+
+  .legend-container::-webkit-scrollbar-thumb {
+    background: #f0b90b;
+    border-radius: 3px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: #12121f;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .legend-item:hover {
+    background: #252540;
+    transform: translateX(4px);
+  }
+
+  .legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .legend-name {
+    flex: 1;
+    font-size: 14px;
+    color: #ccc;
+  }
+
+  .legend-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-right: 12px;
+  }
+
+  .legend-pct {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f0b90b;
+    min-width: 60px;
+    text-align: right;
+  }
+
+  .table-section {
+    margin-top: 30px;
+  }
+
+  .table-card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #2a2a3e;
+    overflow-x: auto;
+  }
+
+  .table-card h2 {
+    font-size: 18px;
+    color: #f0b90b;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th {
+    background: #252540;
+    color: #f0b90b;
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+
+  td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #2a2a3e;
+    color: #ccc;
+  }
+
+  tr:hover td {
+    background: #252540;
+  }
+
+  .asset-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .asset-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .pct-bar {
+    width: 100%;
+    height: 8px;
+    background: #2a2a3e;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .pct-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>📊 加密貨幣資產分佈</h1>
+    <div class="total">US$ 28,548.28</div>
+    <div class="subtitle">共 8 項資產 · 資料來源：冷錢包</div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-card">
+      <h2>🥧 資產佔比圓餅圖</h2>
+      <div class="chart-container">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2>📋 資產明細</h2>
+      <div class="legend-container" id="legendContainer"></div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <div class="table-card">
+      <h2>📑 完整資產列表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>資產名稱</th>
+            <th>代幣符號</th>
+            <th>數量</th>
+            <th>價值 (US$)</th>
+            <th>佔比</th>
+            <th>分佈</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const assets = [
+  { name: "Tether Gold", symbol: "XAUt", qty: 3.950049, value: 16493.15 },
+  { name: "Paxos Gold", symbol: "PAXG", qty: 2.1329216, value: 8920.74 },
+  { name: "SLVon", symbol: "SLVon", qty: 16.295449, value: 895.30 },
+  { name: "Lombard Staked BTC", symbol: "LBTC", qty: 0.016705, value: 1397.60 },
+  { name: "GLDon", symbol: "GLDon", qty: 1.0544766, value: 403.45 },
+  { name: "Gold xStock", symbol: "GLDx", qty: 0.6409127, value: 245.33 },
+  { name: "Ethereum", symbol: "ETH", qty: 0.0483851, value: 129.11 },
+  { name: "Solana", symbol: "SOL", qty: 0.0567457, value: 6.77 }
+];
+
+const totalValue = 28548.28;
+
+const colors = [
+  '#f0b90b', '#ffd700', '#c0c0c0', '#f7931a', '#b8860b',
+  '#daa520', '#627eea', '#00d4aa'
+];
+
+let pieChart;
+
+function createChart() {
+  const ctx = document.getElementById('pieChart').getContext('2d');
+
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: assets.map(a => a.name),
+      datasets: [{
+        data: assets.map(a => a.value),
+        backgroundColor: colors,
+        borderColor: '#0d0d0d',
+        borderWidth: 2,
+        hoverOffset: 12
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '40%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          titleColor: '#f0b90b',
+          bodyColor: '#fff',
+          borderColor: '#f0b90b',
+          borderWidth: 1,
+          cornerRadius: 8,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed;
+              const pct = ((val / totalValue) * 100).toFixed(2);
+              return ` ${context.label}: US$ ${val.toLocaleString('en-US', {minimumFractionDigits: 2})} (${pct}%)`;
+            }
+          }
+        },
+        datalabels: {
+          display: true,
+          color: '#fff',
+          font: { size: 11, weight: 'bold' },
+          formatter: function(value, context) {
+            const pct = ((value / totalValue) * 100);
+            return pct > 2 ? pct.toFixed(1) + '%' : '';
+          }
+        }
+      },
+      animation: {
+        animateRotate: true,
+        duration: 1200,
+        easing: 'easeOutQuart'
+      }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
+
+function renderLegend() {
+  const container = document.getElementById('legendContainer');
+  container.innerHTML = '';
+
+  assets.forEach((asset, i) => {
+    const pct = ((asset.value / totalValue) * 100).toFixed(2);
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-color" style="background:${colors[i]}"></div>
+      <div class="legend-name">${asset.name}</div>
+      <div class="legend-value">$${asset.value.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+      <div class="legend-pct">${pct}%</div>
+    `;
+    item.addEventListener('mouseenter', () => {
+      if (pieChart) {
+        pieChart.setActiveElements([{ datasetIndex: 0, index: i }]);
+        pieChart.update();
+      }
+    });
+    item.addEventListener('mouseleave', () => {
+      if (pieChart) {
+        pieChart.setActiveElements([]);
+        pieChart.update();
+      }
+    });
+    container.appendChild(item);
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  assets.forEach((asset, i) => {
+    const pct = ((asset.value / totalValue) * 100).toFixed(2);
+    const color = colors[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td><div class="asset-name-cell"><div class="asset-dot" style="background:${color}"></div>${asset.name}</div></td>
+      <td style="color:#f0b90b;font-weight:600">${asset.symbol}</td>
+      <td>${asset.qty.toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 7})}</td>
+      <td style="font-weight:600;color:#fff">$${asset.value.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+      <td style="color:#f0b90b;font-weight:700">${pct}%</td>
+      <td style="min-width:100px"><div class="pct-bar"><div class="pct-bar-fill" style="width:${Math.min(pct * 1.5, 100)}%;background:${color}"></div></div></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Init
+createChart();
+renderLegend();
+renderTable();
+</script>
+
+</body>
+</html>
