@@ -87,10 +87,24 @@ const W2=[
 ["GLDon",367.99,"黃金 ETF (GLD)"],
 ["Tether Gold (XAUt)",16468.56,"實體黃金代幣 XAUt"]
 ];
+const W3=[
+["BNB Smart Chain (BNB)",635.44,"BNB"],
+["Wrapped Beacon ETH (BSC)",20.33,"以太幣 (ETH)"],
+["Binance Bridged USDT",0.09,"USDT 穩定幣"],
+["Solana",202.31,"Solana (SOL)"],
+["Jito Staked SOL",77.26,"Solana (SOL)"],
+["Binance Staked SOL",19.36,"Solana (SOL)"],
+["Bitcoin",9.72,"比特幣 (BTC)"],
+["Tether (Ethereum)",0.15,"USDT 穩定幣"],
+["Ethereum",0.01,"以太幣 (ETH)"],
+["Polygon (POL)",0.01,"Polygon (POL)"]
+];
+const tag=(d,s)=>d.map(r=>[r[0]+"（"+s+"）",r[1],r[2]]);
 const WALLETS=[
  {key:"w1",name:"錢包一",shown:36760.97,data:W1},
  {key:"w2",name:"錢包二",shown:28155.25,data:W2},
- {key:"all",name:"兩個錢包合併",shown:36760.97+28155.25,data:[...W1.map(r=>[r[0]+"（錢包一）",r[1],r[2]]),...W2.map(r=>[r[0]+"（錢包二）",r[1],r[2]])]}
+ {key:"w3",name:"錢包三",shown:964.67,data:W3},
+ {key:"all",name:"全部錢包合併",shown:36760.97+28155.25+964.67,data:[...tag(W1,"錢包一"),...tag(W2,"錢包二"),...tag(W3,"錢包三")]}
 ];
 const PAL=["#2563eb","#f59e0b","#10b981","#ef4444","#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316","#14b8a6","#6366f1","#eab308","#d946ef","#22c55e","#0ea5e9","#f43f5e","#a3a3a3","#7c3aed","#059669","#b45309","#0891b2","#be185d","#65a30d","#9333ea","#475569"];
 const fmt=n=>"US$ "+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
