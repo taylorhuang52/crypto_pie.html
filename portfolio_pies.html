@@ -3,15 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>加密資產持倉市值分析</title>
+<title>冷錢包持倉市值分析</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--text:#16202a;--muted:#667380;--line:#e1e5ea}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1419;--card:#18202a;--text:#e8edf2;--muted:#93a0ad;--line:#2a3541}}
+:root{--bg:#f6f7f9;--card:#fff;--text:#16202a;--muted:#667380;--line:#e1e5ea;--acc:#2563eb}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1419;--card:#18202a;--text:#e8edf2;--muted:#93a0ad;--line:#2a3541;--acc:#60a5fa}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.5}
 main{max-width:1000px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:1.6rem;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 20px;font-size:.92rem}
+.sub{color:var(--muted);margin:0 0 16px;font-size:.92rem}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+.tabs button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px}
 h2{font-size:1.15rem;margin:0 0 4px}
 .wrap{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;margin-top:12px}
@@ -25,7 +29,7 @@ table{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:
 th,td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:right}
 th:first-child,td:first-child{text-align:left}
 th{color:var(--muted);font-weight:500}
-.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:baseline}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px}
 .small{color:var(--muted);font-size:.82rem}
 .members{color:var(--muted);font-size:.76rem;display:block;margin-left:17px}
 .note{font-size:.82rem;color:var(--muted)}
@@ -33,27 +37,16 @@ th{color:var(--muted);font-weight:500}
 </head>
 <body>
 <main>
-<h1>加密資產持倉市值分析</h1>
+<h1>冷錢包持倉市值分析</h1>
 <p class="sub" id="summary"></p>
-
-<section>
-  <h2>圖一：各代幣市值占比</h2>
-  <div class="small">依截圖中 53 個代幣個別市值繪製；占比小於 1% 者合併為「其他」。</div>
-  <div class="wrap"><div class="chart" id="c1"></div><div class="legend" id="l1"></div></div>
-</section>
-
-<section>
-  <h2>圖二：依相同標的歸類後的市值占比</h2>
-  <div class="small">同一股票／資產的不同代幣（如 AMD、AMDon；Tesla、TSLAon、Tesla xStock）合併計算；BTC Taproot 與 Lombard Staked BTC 歸為比特幣，Binance Staked SOL 與 Solana 歸為 SOL，Wrapped Beacon ETH 與 Ethereum 歸為 ETH；QQQ 與 Nasdaq xStock 歸為納斯達克100，SPY 與 SP500 xStock 歸為標普500。</div>
-  <div class="wrap"><div class="chart" id="c2"></div><div class="legend" id="l2"></div></div>
-</section>
-
-<p class="note">數據由截圖人工讀取，解析度有限，個別數字可能有小誤差；單位為美元（US$）。</p>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div id="view"></div>
+<p class="note">數據由截圖人工讀取，錢包一解析度有限，個別數字可能有小誤差；單位為美元（US$）。</p>
 </main>
 
 <script>
 // [顯示名稱, 市值USD, 歸類]
-const H=[
+const W1=[
 ["GOOGLon",220.95,"Alphabet"],["Alphabet",212.09,"Alphabet"],["Alphabet xStock",662.27,"Alphabet"],
 ["Amazon",996.41,"Amazon"],["Amazon.com xStock",31.55,"Amazon"],
 ["Advanced Micro Devices",1814.93,"AMD"],["AMDon",213.50,"AMD"],
@@ -84,29 +77,40 @@ const H=[
 ["VTIon",198.54,"VTI"],
 ["Wrapped Beacon ETH",1833.16,"以太幣 (ETH)"]
 ];
+const W2=[
+["Ethereum",87.33,"以太幣 (ETH)"],
+["Gold xStock",224.06,"黃金 ETF (GLD)"],
+["SLVon",685.11,"白銀 (SLV)"],
+["Lombard Staked BTC",1077.02,"比特幣 (BTC)"],
+["Paxos Gold (PAXG)",9203.34,"實體黃金代幣 PAXG"],
+["Solana",4.21,"Solana (SOL)"],
+["GLDon",367.99,"黃金 ETF (GLD)"],
+["Tether Gold (XAUt)",16468.56,"實體黃金代幣 XAUt"]
+];
+const WALLETS=[
+ {key:"w1",name:"錢包一",shown:36760.97,data:W1},
+ {key:"w2",name:"錢包二",shown:28155.25,data:W2},
+ {key:"all",name:"兩個錢包合併",shown:36760.97+28155.25,data:[...W1.map(r=>[r[0]+"（錢包一）",r[1],r[2]]),...W2.map(r=>[r[0]+"（錢包二）",r[1],r[2]])]}
+];
 const PAL=["#2563eb","#f59e0b","#10b981","#ef4444","#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316","#14b8a6","#6366f1","#eab308","#d946ef","#22c55e","#0ea5e9","#f43f5e","#a3a3a3","#7c3aed","#059669","#b45309","#0891b2","#be185d","#65a30d","#9333ea","#475569"];
 const fmt=n=>"US$ "+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-const total=H.reduce((s,r)=>s+r[1],0);
-document.getElementById("summary").textContent=
- `共 ${H.length} 個代幣，加總市值 ${fmt(total)}（截圖顯示總資產 US$ 36,760.97，差額為截圖未列出的項目或讀取誤差）`;
 
-function pie(id,lid,items,threshold,withMembers){
+function pie(box,leg,items,total,threshold){
   let main=items.filter(i=>i.v/total>=threshold).sort((a,b)=>b.v-a.v);
   const rest=items.filter(i=>i.v/total<threshold);
-  if(rest.length){
-    main.push({n:`其他（${rest.length} 項）`,v:rest.reduce((s,i)=>s+i.v,0),m:rest.map(i=>i.n).join("、"),other:true});
-  }
+  if(rest.length)main.push({n:`其他（${rest.length} 項）`,v:rest.reduce((s,i)=>s+i.v,0),m:rest.map(i=>i.n).join("、"),other:true});
   main.forEach((d,i)=>d.c=d.other?"#9aa5b1":PAL[i%PAL.length]);
   const sum=main.reduce((s,d)=>s+d.v,0);
   const R=150,C=160;let a0=-Math.PI/2,paths="";
   main.forEach(d=>{
     const a=d.v/sum*Math.PI*2,a1=a0+a;
     const x0=C+R*Math.cos(a0),y0=C+R*Math.sin(a0),x1=C+R*Math.cos(a1),y1=C+R*Math.sin(a1);
-    const large=a>Math.PI?1:0;
-    paths+=`<path d="M${C},${C}L${x0},${y0}A${R},${R} 0 ${large} 1 ${x1},${y1}Z" fill="${d.c}" data-t="${d.n}｜${fmt(d.v)}｜${(d.v/total*100).toFixed(2)}%"></path>`;
+    const T=`${d.n}｜${fmt(d.v)}｜${(d.v/total*100).toFixed(2)}%`;
+    paths+=main.length===1
+      ?`<circle cx="${C}" cy="${C}" r="${R}" fill="${d.c}"/>`
+      :`<path d="M${C},${C}L${x0},${y0}A${R},${R} 0 ${a>Math.PI?1:0} 1 ${x1},${y1}Z" fill="${d.c}" data-t="${T}"></path>`;
     a0=a1;
   });
-  const box=document.getElementById(id);
   box.innerHTML=`<svg viewBox="0 0 320 320" role="img" aria-label="圓餅圖">${paths}</svg><div class="tip"></div>`;
   const tip=box.querySelector(".tip");
   box.querySelectorAll("path").forEach(p=>{
@@ -114,17 +118,41 @@ function pie(id,lid,items,threshold,withMembers){
     p.addEventListener("mouseleave",()=>tip.style.display="none");
     p.addEventListener("click",()=>alert(p.dataset.t.replaceAll("｜","\n")));
   });
-  let rows=main.map(d=>`<tr><td><span class="dot" style="background:${d.c}"></span>${d.n}${d.m&&withMembers?`<span class="members">${d.m}</span>`:""}</td><td>${fmt(d.v)}</td><td>${(d.v/total*100).toFixed(2)}%</td></tr>`).join("");
-  document.getElementById(lid).innerHTML=`<table><thead><tr><th>名稱</th><th>市值</th><th>占比</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows=main.map(d=>`<tr><td><span class="dot" style="background:${d.c}"></span>${d.n}${d.m?`<span class="members">${d.m}</span>`:""}</td><td>${fmt(d.v)}</td><td>${(d.v/total*100).toFixed(2)}%</td></tr>`).join("");
+  leg.innerHTML=`<table><thead><tr><th>名稱</th><th>市值</th><th>占比</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// 圖一：個別代幣
-pie("c1","l1",H.map(r=>({n:r[0],v:r[1]})),0.01,true);
+function render(w){
+  const total=w.data.reduce((s,r)=>s+r[1],0);
+  const diff=w.shown-total;
+  document.getElementById("summary").textContent=
+    `${w.name}：${w.data.length} 個代幣，加總市值 ${fmt(total)}（截圖總資產 ${fmt(w.shown)}，差額 ${fmt(Math.abs(diff))} 為截圖未顯示的項目或讀取誤差）`;
+  const g={};
+  w.data.forEach(r=>{(g[r[2]]=g[r[2]]||{n:r[2],v:0,l:[]});g[r[2]].v+=r[1];g[r[2]].l.push(r[0]);});
+  const groups=Object.values(g).map(o=>({n:o.n,v:o.v,m:o.l.length>1?o.l.join("、"):""}));
+  const gold=(g["黃金 ETF (GLD)"]?.v||0)+(g["實體黃金代幣 PAXG"]?.v||0)+(g["實體黃金代幣 XAUt"]?.v||0);
+  const goldNote=gold?`<div class="small">黃金相關（GLD ETF 代幣＋PAXG＋XAUt）合計 ${fmt(gold)}，占 ${(gold/total*100).toFixed(2)}%。</div>`:"";
+  const v=document.getElementById("view");
+  v.innerHTML=`
+  <section><h2>圖一：各代幣市值占比</h2>
+   <div class="small">依個別代幣市值繪製；占比小於 1% 者合併為「其他」。</div>
+   <div class="wrap"><div class="chart" id="c1"></div><div class="legend" id="l1"></div></div></section>
+  <section><h2>圖二：依相同標的歸類後的市值占比</h2>
+   <div class="small">同一股票／資產的不同代幣合併計算；BTC 類、ETH 類、SOL 類、QQQ 類、SPY 類、GLD 類各自歸為一類，PAXG 與 XAUt 為實體黃金代幣，各自獨立。</div>
+   ${goldNote}
+   <div class="wrap"><div class="chart" id="c2"></div><div class="legend" id="l2"></div></div></section>`;
+  pie(document.getElementById("c1"),document.getElementById("l1"),w.data.map(r=>({n:r[0],v:r[1]})),total,0.01);
+  pie(document.getElementById("c2"),document.getElementById("l2"),groups,total,0.01);
+}
 
-// 圖二：依標的歸類
-const g={};
-H.forEach(r=>{(g[r[2]]=g[r[2]]||{n:r[2],v:0,l:[]});g[r[2]].v+=r[1];g[r[2]].l.push(r[0]);});
-pie("c2","l2",Object.values(g).map(o=>({n:o.n,v:o.v,m:o.l.length>1?o.l.join("、"):""})),0.01,true);
+const tabs=document.getElementById("tabs");
+WALLETS.forEach((w,i)=>{
+  const b=document.createElement("button");
+  b.role="tab";b.textContent=w.name;b.setAttribute("aria-selected",i===0);
+  b.onclick=()=>{tabs.querySelectorAll("button").forEach(x=>x.setAttribute("aria-selected",x===b));render(w);};
+  tabs.appendChild(b);
+});
+render(WALLETS[0]);
 </script>
 </body>
 </html>
